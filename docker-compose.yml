@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:16
+    container_name: odoo-ai-sales-agent-db
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: irfan_odoo
+      POSTGRES_PASSWORD: irfan_odoo2026
+    volumes:
+      - odoo-db:/var/lib/postgresql/data
+  odoo:
+    image: odoo:18.0
+    container_name: odoo-ai-sales-agent-app
+    depends_on: [db]
+    ports: ["8069:8069"]
+    environment:
+      HOST: db
+      USER: irfan_odoo
+      PASSWORD: irfan_odoo2026
+    volumes:
+      - odoo-web:/var/lib/odoo
+volumes:
+  odoo-db:
+  odoo-web:
