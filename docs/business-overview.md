@@ -2,7 +2,7 @@
 
 A plain-language explanation for non-technical and non-sales readers.
 
-**Status:** The Odoo client works: it can find a customer, check stock and price, and create a draft quotation. The AI agent, the approval step and the `/chat` endpoint are in progress.
+**Status:** Working end to end: customer lookup, stock and price check, approval, and draft quotation creation in Odoo.
 
 ## 1. The Business Problem
 
@@ -34,22 +34,28 @@ The agent sits between the sales rep and Odoo. It turns a plain-English request 
 
 1. **Find the customer** (`find_customer`): looks up the customer in Odoo.
 2. **Check stock and price** (`check_stock`): finds the product, its on-hand quantity and its list price.
-3. **Ask for approval**: shows the sales rep what it is about to create.
-4. **Create the draft quotation** (`create_draft_quotation`): only after approval.
+3. **Create the draft quotation** (`create_draft_quotation`): this is the only tool that writes to Odoo, and it runs only after the sales rep approves.
 
-**Ambiguous requests:** if a request matches several products (for example, "chair" matches Office Chair, Office Chair Black and Conference Chair), the agent asks which one is meant instead of guessing.
+Before step 3 runs, the system pauses and shows the sales rep exactly what will be created.
+
+**Ambiguous requests:** if a request matches several products (for example, "Office Chair" matches Office Chair and Office Chair Black), the agent asks which one is meant instead of guessing.
 
 **Out of stock:** if the product has too little stock, the agent says so instead of quoting anyway.
 
+**Unknown customer:** if the customer isn't in Odoo, the agent says so and stops. It never invents data.
+
 ## 4. Why There Is an Approval Step
 
-Nothing is written to Odoo without the sales rep's approval. This prevents accidental quotations and keeps a person in control of every record.
+Nothing is written to Odoo without the sales rep's approval. This prevents accidental quotations and keeps a person in control of every record. The approval is enforced by the system, not by the AI: the AI cannot skip it.
 
 ```
-Agent:      I can create a draft quotation for 5 Office Chairs for Gemini Furniture, total ₹350. Create it?
-            (Nothing has been saved yet.)
+Agent:      Ready to create draft quotation: customer id 11, product id 5, qty 5.
+            Approval needed. (Nothing has been saved yet.)
+Sales rep:  No, make it 3 instead.
+Agent:      Ready to create draft quotation: customer id 11, product id 5, qty 3.
+            Approval needed. (Still nothing saved.)
 Sales rep:  Yes.
-Agent:      Draft quotation S00025 created.
+Agent:      Draft quotation created: Office Chair, quantity 3, total 210.
 ```
 
 The agent stops at a **draft** quotation. Confirming the order and sending it to the customer stay with the sales rep.
@@ -75,7 +81,7 @@ What information do I need?
   -> Final answer
 ```
 
-The loop has a maximum number of steps, so the agent can't run forever.
+The loop has a maximum number of steps (15), so the agent can't run forever.
 
 ## 6. Why It Helps Sales Reps
 
@@ -87,13 +93,16 @@ The loop has a maximum number of steps, so the agent can't run forever.
 ## 7. Example Conversation (real data from the demo)
 
 ```
-Sales rep:  Gemini Furniture wants 5 office chairs. Can we quote them?
-Agent:      I found several chairs: Office Chair, Office Chair Black, Conference Chair. Which one?
-Sales rep:  Office Chair.
-Agent:      Gemini Furniture found. Office Chair: 20 in stock, ₹70 each.
-            5 units would total ₹350. Should I create a draft quotation?
-Sales rep:  Yes.
-Agent:      Draft quotation S00025 created.
+Sales rep:  Quote 5 Office Chair for Gemini Furniture
+Agent:      Found Gemini Furniture. Two products match:
+            1. Office Chair, 20 in stock, unit price 70
+            2. Office Chair Black, 10 in stock, unit price 120.5
+            Which product?
+Sales rep:  Office chair, id 5
+Agent:      Ready to create draft quotation: customer id 11, product id 5, qty 5.
+            Approval needed.
+Sales rep:  Yes
+Agent:      Draft quotation S00030 created for Gemini Furniture, Office Chair, quantity 5, total 350.
 ```
 
 ## 8. Future Work (not built yet)
@@ -101,6 +110,8 @@ Agent:      Draft quotation S00025 created.
 - Customer-specific prices and discounts (Odoo pricelists)
 - Quotations with several products in one request
 - Emailing the quotation to the customer after the sales rep confirms it
+- Showing customer and product names (not only ids) in the approval message
+- Login for sales reps, and saved conversations that survive a restart
 
 ## Summary
 
