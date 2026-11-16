@@ -1,10 +1,11 @@
-"""LangChain tools the agent can call. Thin wrappers around OdooClient.
+"""LangChain tools that the agent can call. Thin wrappers around OdooClient.
 
 Each tool: validates input (Pydantic), calls Odoo, and returns plain text the
 LLM can read. Odoo errors are returned as text instead of raised, so the agent
 can explain the problem to the user instead of crashing.
 """
 import logging
+import threading
 from functools import lru_cache
 
 from langchain_core.tools import tool
@@ -19,6 +20,11 @@ logger = logging.getLogger(__name__)
 def _client() -> OdooClient:
     """One shared Odoo connection, created on first use."""
     return OdooClient()
+
+
+# The Odoo connection (xmlrpc) is not thread-safe, and the agent can run several
+# tools in parallel. This lock makes Odoo calls go one at a time.
+_odoo_lock = threading.Lock()
 
 
 class FindCustomerArgs(BaseModel):
@@ -40,7 +46,8 @@ def find_customer(name: str) -> str:
     """Search Odoo for customers by name. Returns id, name and email of each match.
     Call this first to get the customer id needed for a quotation."""
     try:
-        rows = _client().find_customer(name)
+        with _odoo_lock:
+            rows = _client().find_customer(name)
     except OdooError as e:
         logger.warning("find_customer failed: %s", e)
         return f"Odoo error while searching customers: {e}"
@@ -54,7 +61,8 @@ def check_stock(product_name: str) -> str:
     """Search Odoo products by name. Returns id, units in stock and unit price of each match.
     Use it to check availability and to get the product id needed for a quotation."""
     try:
-        rows = _client().check_stock(product_name)
+        with _odoo_lock:
+            rows = _client().check_stock(product_name)
     except OdooError as e:
         logger.warning("check_stock failed: %s", e)
         return f"Odoo error while checking stock: {e}"
@@ -73,7 +81,8 @@ def create_draft_quotation(partner_id: int, product_id: int, qty: int) -> str:
     Only call after find_customer and check_stock, and only once the user has confirmed
     the customer, product and quantity. This writes to Odoo."""
     try:
-        q = _client().create_draft_quotation(partner_id, product_id, qty)
+        with _odoo_lock:
+            q = _client().create_draft_quotation(partner_id, product_id, qty)
     except (OdooError, ValueError) as e:
         logger.warning("create_draft_quotation failed: %s", e)
         return f"Could not create the quotation: {e}"
