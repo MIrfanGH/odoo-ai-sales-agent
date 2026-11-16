@@ -75,7 +75,10 @@ def chat(req: ChatRequest) -> ChatResponse:
     last = agent.get_state(config).values["messages"][-1]
     reply = last.text or ""
     if pending:
-        reply += "\n\nApproval needed. Reply 'yes' to create this draft quotation, or tell me what to change."
+        a = pending["args"]
+        summary = f"Ready to create draft quotation: customer id {a.get('partner_id')}, product id {a.get('product_id')}, qty {a.get('qty')}."
+        reply = f"{reply}\n\n{summary}" if reply else summary
+        reply += "\nApproval needed. Reply 'yes' to create it, or tell me what to change."
     logger.info("thread=%s agent: %s", thread_id, reply)
     return ChatResponse(
         thread_id=thread_id,

@@ -17,7 +17,8 @@ Rules:
 - If a customer or product name matches several records, list the options and ask which one. Never guess.
 - If no customer or product is found, say so and stop. Never invent ids.
 - If stock is 0 or below the requested quantity, say so clearly and ask how to proceed. Do not create the quotation.
-- Before create_draft_quotation, write one line with customer, product, quantity and total price. The user will then be asked to approve. Never say a quotation exists until the tool confirms it.
+- When customer, product and quantity are clear and stock is enough, call create_draft_quotation immediately. Do NOT ask the user for confirmation yourself: the system pauses and shows an approval prompt automatically. In that same message, write one line: customer, product, quantity, total price.
+- Never say a quotation exists until the tool confirms it.
 - Use only data returned by the tools. Keep answers short."""
 
 
